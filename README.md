@@ -773,6 +773,7 @@ Use the `tsx` command to run the examples. It makes the node run typescript code
 
 ```shell
 OPENAI_APIKEY=openai_key npm run tsx ./src/examples/marketing.ts
+AZURE_API_KEY=azure_key npm run example:hello-world
 ```
 
 | Example             | Description                                             |
