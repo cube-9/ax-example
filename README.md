@@ -799,6 +799,7 @@ OPENAI_APIKEY=openai_key npm run tsx ./src/examples/marketing.ts
 | prime.ts            | Using field processors to process fields in a prompt    |
 | simple-classify.ts  | Use a simple classifier to classify stuff               |
 | hello-world.ts     | Extract customer name from markdown using Azure |
+| hello-mipro.ts     | Tune a simple prompt using the MiPRO optimizer |
 | mcp-client-memory.ts       | Example of using an MCP server for memory with Ax |
 | mcp-client-blender.ts       | Example of using an MCP server for Blender with Ax |
 | tune-bootstrap.ts         | Use bootstrap optimizer to improve prompt efficiency           |

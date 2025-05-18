@@ -10,8 +10,6 @@ coverage
 yarn.lock
 *.mp3
 audio
-.env
-.env.*
 .data
 demos.json
 site/dist
@@ -19,3 +17,4 @@ site/dist
 .tsimp
 *.mp4
 *.webm
+config.bat

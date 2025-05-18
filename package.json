@@ -26,6 +26,7 @@
     "dependencies:rebuild": "rm -rf package-lock.json && rm -rf node_modules && rm -rf */*/node_modules && npm i --no-audit --no-fund",
     "tsx": "node --env-file=.env --import=tsx",
     "example:hello-world": "yarn tsx ./src/examples/hello-world.ts",
+    "example:hello-mipro": "yarn tsx ./src/examples/hello-mipro.ts",
     "example": "yarn tsx ./src/examples/"
   },
   "engines": {
