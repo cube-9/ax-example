@@ -13,7 +13,8 @@
     "tsx": "node --env-file=.env --import=tsx"
   },
   "dependencies": {
-    "@ax-llm/ax": "11.0.42"
+    "@ax-llm/ax": "11.0.42",
+    "langfuse": "^2.0.0"
   },
   "bugs": {
     "url": "https://github.com/@ax-llm/ax/issues"
