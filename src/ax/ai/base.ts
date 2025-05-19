@@ -412,7 +412,9 @@ export class AxBaseAI<
             }
             return await this._chat2(model, modelConfig, req, options, span)
           } finally {
-            span.end()
+            if (!modelConfig.stream) {
+              span.end()
+            }
           }
         }
       )
@@ -564,26 +566,19 @@ export class AxBaseAI<
           return res
         }
 
-      const doneCb = async (_values: readonly AxChatResponse[]) => {
-        if (debug) {
-          process.stdout.write('\n')
-        }
-
-        if (span?.isRecording()) {
-          for (const r of state.results) {
-            span.addEvent(axSpanEvents.LLM_ASSISTANT_MESSAGE, {
-              content: r.content || undefined,
-              functionCalls:
-                r.functionCalls.length > 0 ? r.functionCalls : undefined,
-            })
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const doneCb = (sp?: Span) =>
+        async (_values: readonly AxChatResponse[]) => {
+          if (debug) {
+            process.stdout.write('\n')
           }
+          sp?.end()
         }
-      }
 
       const st = (rv as ReadableStream<TChatResponseDelta>).pipeThrough(
         new RespTransformStream<TChatResponseDelta, AxChatResponse>(
-          wrappedRespFn(state),
-          doneCb
+          wrappedRespFn({}),
+          doneCb(span)
         )
       )
       return st
