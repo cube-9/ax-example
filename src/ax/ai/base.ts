@@ -375,7 +375,7 @@ export class AxBaseAI<
                 let content = ''
                 switch (msg.role) {
                   case 'system':
-                    content = msg.content
+                    content = msg.content ?? ''
                     break
                   case 'user':
                     if (typeof msg.content === 'string') {
