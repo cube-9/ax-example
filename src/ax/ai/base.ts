@@ -2,7 +2,7 @@ import type { ReadableStream } from 'stream/web'
 
 import { type Span, SpanKind } from '@opentelemetry/api'
 
-import { axSpanAttributes } from '../trace/trace.js'
+import { axSpanAttributes, axSpanEvents } from '../trace/trace.js'
 import { apiCall } from '../util/apicall.js'
 import { RespTransformStream } from '../util/transform.js'
 
@@ -369,6 +369,47 @@ export class AxBaseAI<
         },
         async (span) => {
           try {
+            if (span.isRecording()) {
+              for (const msg of req.chatPrompt ?? []) {
+                let role = msg.role
+                let content = ''
+                switch (msg.role) {
+                  case 'system':
+                    content = msg.content ?? ''
+                    break
+                  case 'user':
+                    if (typeof msg.content === 'string') {
+                      content = msg.content
+                    } else {
+                      content = msg.content
+                        .map((v) => {
+                          switch (v.type) {
+                            case 'text':
+                              return v.text
+                            case 'image':
+                              return `(image:${v.mimeType})`
+                            case 'audio':
+                              return `(audio:${v.format ?? 'unknown'})`
+                            default:
+                              return ''
+                          }
+                        })
+                        .join('\n')
+                    }
+                    break
+                  case 'assistant':
+                    content = msg.content ?? ''
+                    break
+                  case 'function':
+                    content = msg.result
+                    break
+                }
+                span.addEvent(axSpanEvents.LLM_PROMPT, {
+                  'gen_ai.message.role': role,
+                  'gen_ai.message.content': content,
+                })
+              }
+            }
             return await this._chat2(model, modelConfig, req, options, span)
           } finally {
             if (!modelConfig.stream) {
@@ -486,9 +527,12 @@ export class AxBaseAI<
       }
 
       const respFn = this.aiImpl.createChatStreamResp.bind(this)
+      const state: {
+        results: { content: string; functionCalls: unknown[] }[]
+      } = { results: [] }
       const wrappedRespFn =
-        (state: object) => (resp: Readonly<TChatResponseDelta>) => {
-          const res = respFn(resp, state)
+        (st: typeof state) => (resp: Readonly<TChatResponseDelta>) => {
+          const res = respFn(resp, st)
           res.sessionId = options?.sessionId
 
           if (!res.modelUsage) {
@@ -502,6 +546,18 @@ export class AxBaseAI<
 
           if (span?.isRecording()) {
             setResponseAttr(res, span)
+
+            for (const [idx, r] of res.results.entries()) {
+              if (!st.results[idx]) {
+                st.results[idx] = { content: '', functionCalls: [] }
+              }
+              if (r.content) {
+                st.results[idx].content += r.content
+              }
+              if (r.functionCalls && r.functionCalls.length > 0) {
+                st.results[idx].functionCalls.push(...r.functionCalls)
+              }
+            }
           }
 
           if (debug) {
@@ -540,13 +596,16 @@ export class AxBaseAI<
 
     if (span?.isRecording()) {
       setResponseAttr(res, span)
+
+      for (const r of res.results) {
+        span.addEvent(axSpanEvents.LLM_ASSISTANT_MESSAGE, r)
+      }
     }
 
     if (debug) {
       logResponse(res)
     }
 
-    span?.end()
     return res
   }
 
@@ -666,7 +725,6 @@ export class AxBaseAI<
       setResponseAttr(res, span)
     }
 
-    span?.end()
     return res
   }
 
