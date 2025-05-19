@@ -611,7 +611,6 @@ export class AxBaseAI<
       logResponse(res)
     }
 
-    span?.end()
     return res
   }
 
@@ -731,7 +730,6 @@ export class AxBaseAI<
       setResponseAttr(res, span)
     }
 
-    span?.end()
     return res
   }
 
