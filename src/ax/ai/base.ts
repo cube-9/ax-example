@@ -2,7 +2,7 @@ import type { ReadableStream } from 'stream/web'
 
 import { type Span, SpanKind } from '@opentelemetry/api'
 
-import { axSpanAttributes } from '../trace/trace.js'
+import { axSpanAttributes, axSpanEvents } from '../trace/trace.js'
 import { apiCall } from '../util/apicall.js'
 import { RespTransformStream } from '../util/transform.js'
 
@@ -369,6 +369,47 @@ export class AxBaseAI<
         },
         async (span) => {
           try {
+            if (span.isRecording()) {
+              for (const msg of req.chatPrompt ?? []) {
+                let role = msg.role
+                let content = ''
+                switch (msg.role) {
+                  case 'system':
+                    content = msg.content ?? ''
+                    break
+                  case 'user':
+                    if (typeof msg.content === 'string') {
+                      content = msg.content
+                    } else {
+                      content = msg.content
+                        .map((v) => {
+                          switch (v.type) {
+                            case 'text':
+                              return v.text
+                            case 'image':
+                              return `(image:${v.mimeType})`
+                            case 'audio':
+                              return `(audio:${v.format ?? 'unknown'})`
+                            default:
+                              return ''
+                          }
+                        })
+                        .join('\n')
+                    }
+                    break
+                  case 'assistant':
+                    content = msg.content ?? ''
+                    break
+                  case 'function':
+                    content = msg.result
+                    break
+                }
+                span.addEvent(axSpanEvents.LLM_PROMPT, {
+                  'gen_ai.message.role': role,
+                  'gen_ai.message.content': content,
+                })
+              }
+            }
             return await this._chat2(model, modelConfig, req, options, span)
           } finally {
             span.end()
