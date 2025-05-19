@@ -371,7 +371,9 @@ export class AxBaseAI<
           try {
             return await this._chat2(model, modelConfig, req, options, span)
           } finally {
-            span.end()
+            if (!modelConfig.stream) {
+              span.end()
+            }
           }
         }
       )
@@ -509,16 +511,18 @@ export class AxBaseAI<
         }
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const doneCb = async (_values: readonly AxChatResponse[]) => {
-        if (debug) {
-          process.stdout.write('\n')
+      const doneCb = (sp?: Span) =>
+        async (_values: readonly AxChatResponse[]) => {
+          if (debug) {
+            process.stdout.write('\n')
+          }
+          sp?.end()
         }
-      }
 
       const st = (rv as ReadableStream<TChatResponseDelta>).pipeThrough(
         new RespTransformStream<TChatResponseDelta, AxChatResponse>(
           wrappedRespFn({}),
-          doneCb
+          doneCb(span)
         )
       )
       return st
