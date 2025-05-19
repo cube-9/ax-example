@@ -41,6 +41,7 @@ export const axSpanAttributes = {
 
 export const axSpanEvents = {
   LLM_PROMPT: 'gen_ai.prompt',
+  LLM_ASSISTANT_MESSAGE: 'gen_ai.assistant_message',
 }
 
 export enum AxLLMRequestTypeValues {

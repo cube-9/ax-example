@@ -2,7 +2,7 @@ import type { ReadableStream } from 'stream/web'
 
 import { type Span, SpanKind } from '@opentelemetry/api'
 
-import { axSpanAttributes } from '../trace/trace.js'
+import { axSpanAttributes, axSpanEvents } from '../trace/trace.js'
 import { apiCall } from '../util/apicall.js'
 import { RespTransformStream } from '../util/transform.js'
 
@@ -484,9 +484,12 @@ export class AxBaseAI<
       }
 
       const respFn = this.aiImpl.createChatStreamResp.bind(this)
+      const state: {
+        results: { content: string; functionCalls: unknown[] }[]
+      } = { results: [] }
       const wrappedRespFn =
-        (state: object) => (resp: Readonly<TChatResponseDelta>) => {
-          const res = respFn(resp, state)
+        (st: typeof state) => (resp: Readonly<TChatResponseDelta>) => {
+          const res = respFn(resp, st)
           res.sessionId = options?.sessionId
 
           if (!res.modelUsage) {
@@ -500,6 +503,18 @@ export class AxBaseAI<
 
           if (span?.isRecording()) {
             setResponseAttr(res, span)
+
+            for (const [idx, r] of res.results.entries()) {
+              if (!st.results[idx]) {
+                st.results[idx] = { content: '', functionCalls: [] }
+              }
+              if (r.content) {
+                st.results[idx].content += r.content
+              }
+              if (r.functionCalls && r.functionCalls.length > 0) {
+                st.results[idx].functionCalls.push(...r.functionCalls)
+              }
+            }
           }
 
           if (debug) {
@@ -508,16 +523,25 @@ export class AxBaseAI<
           return res
         }
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const doneCb = async (_values: readonly AxChatResponse[]) => {
         if (debug) {
           process.stdout.write('\n')
+        }
+
+        if (span?.isRecording()) {
+          for (const r of state.results) {
+            span.addEvent(axSpanEvents.LLM_ASSISTANT_MESSAGE, {
+              content: r.content || undefined,
+              functionCalls:
+                r.functionCalls.length > 0 ? r.functionCalls : undefined,
+            })
+          }
         }
       }
 
       const st = (rv as ReadableStream<TChatResponseDelta>).pipeThrough(
         new RespTransformStream<TChatResponseDelta, AxChatResponse>(
-          wrappedRespFn({}),
+          wrappedRespFn(state),
           doneCb
         )
       )
@@ -536,6 +560,10 @@ export class AxBaseAI<
 
     if (span?.isRecording()) {
       setResponseAttr(res, span)
+
+      for (const r of res.results) {
+        span.addEvent(axSpanEvents.LLM_ASSISTANT_MESSAGE, r)
+      }
     }
 
     if (debug) {
